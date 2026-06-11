@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Juego Braille</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="pantalla-juego">
+      <div id="info-juego">
+        <span id="contador">Pregunta 1 / 10</span>
+        <span id="puntaje">✅ 0</span>
+      </div>
+
+      <div id="braille-container">
+        <div id="braille-palabra"></div>
+        <button id="btn-escuchar">🔊 Escuchar</button>
+      </div>
+
+      <div id="opciones"></div>
+
+      <button id="btn-voz" title="Decí tu respuesta">🎤</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

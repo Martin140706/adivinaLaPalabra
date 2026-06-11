@@ -1,0 +1,245 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: #1a1a2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Segoe UI", sans-serif;
+  color: white;
+}
+
+/* ── PANTALLA ── */
+#pantalla-juego {
+  width: 100%;
+  max-width: 480px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── INFO ── */
+#info-juego {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  color: #a0a0c0;
+}
+
+#puntaje {
+  font-size: 1.1rem;
+  color: #e2b96f;
+  font-weight: bold;
+}
+
+/* ── BRAILLE ── */
+#braille-container {
+  background: #16213e;
+  border: 3px solid #0f3460;
+  border-radius: 24px;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+#braille-palabra {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Cada letra braille */
+.braille-letra {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px;
+}
+
+.punto {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #0f3460;
+  border: 2px solid #1a3a6e;
+}
+
+.punto.activo {
+  background: #e2b96f;
+  border-color: #e2b96f;
+  box-shadow: 0 0 8px rgba(226, 185, 111, 0.6);
+}
+
+/* ── BOTÓN ESCUCHAR ── */
+#btn-escuchar {
+  background: transparent;
+  border: 2px solid #e2b96f;
+  color: #e2b96f;
+  border-radius: 12px;
+  padding: 0.5rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#btn-escuchar:active {
+  background: rgba(226, 185, 111, 0.15);
+}
+
+/* ── OPCIONES ── */
+#opciones {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.opcion {
+  background: #16213e;
+  border: 3px solid #0f3460;
+  border-radius: 16px;
+  padding: 1.2rem 0.5rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: white;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    transform 0.1s,
+    background 0.2s,
+    border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.opcion:active {
+  transform: scale(0.95);
+}
+
+.opcion.correcta {
+  background: #1a472a;
+  border-color: #2ecc71;
+  animation: encontrada-pulse 0.4s ease;
+}
+
+.opcion.incorrecta {
+  background: #4a1020;
+  border-color: #e74c3c;
+  animation: shake 0.35s ease;
+}
+
+@keyframes encontrada-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+
+/* ── BOTÓN VOZ ── */
+#btn-voz {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #e2b96f;
+  color: #1a1a2e;
+  font-size: 1.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(226, 185, 111, 0.5);
+  z-index: 100;
+  cursor: pointer;
+  border: none;
+  transition:
+    background 0.2s,
+    transform 0.1s;
+}
+
+#btn-voz:active {
+  transform: scale(0.93);
+}
+
+#btn-voz.escuchando {
+  background: #e74c3c;
+  box-shadow: 0 4px 20px rgba(231, 76, 60, 0.5);
+  animation: pulso 1s infinite;
+}
+
+@keyframes pulso {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* ── PANTALLA FINAL ── */
+#pantalla-final {
+  position: fixed;
+  inset: 0;
+  background: #1a1a2e;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+#pantalla-final.oculto {
+  display: none;
+}
+
+#pantalla-final h2 {
+  font-size: 2.2rem;
+  color: #e2b96f;
+}
+
+#pantalla-final p {
+  font-size: 1.2rem;
+  color: #a0a0c0;
+}
+
+#btn-reiniciar {
+  background: #e2b96f;
+  color: #1a1a2e;
+  border: none;
+  border-radius: 16px;
+  padding: 1rem 2.5rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+}
