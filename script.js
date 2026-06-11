@@ -28,61 +28,24 @@ const BRAILLE = {
   z: [1, 0, 0, 1, 1, 1],
 };
 
-// ── PALABRAS ──
+// ── PALABRAS FÁCILES ──
 const TODAS_LAS_PALABRAS = [
   "casa",
   "mesa",
-  "silla",
   "luna",
   "sol",
   "agua",
   "pan",
-  "leche",
-  "cafe",
-  "te",
-  "perro",
   "gato",
-  "pato",
-  "vaca",
-  "oveja",
-  "cerdo",
-  "caballo",
-  "burro",
-  "raton",
-  "pez",
+  "perro",
   "mano",
-  "dedo",
-  "brazo",
-  "pie",
-  "cara",
   "ojo",
-  "nariz",
   "boca",
-  "oreja",
-  "pelo",
   "rojo",
   "azul",
   "verde",
-  "amarillo",
-  "negro",
-  "blanco",
-  "gris",
-  "rosa",
-  "lila",
-  "marron",
   "dia",
   "noche",
-  "tarde",
-  "mañana",
-  "hoy",
-  "ayer",
-  "lunes",
-  "martes",
-  "miercoles",
-  "jueves",
-  "viernes",
-  "sabado",
-  "domingo",
 ];
 
 // ── ESTADO ──
@@ -91,12 +54,12 @@ let puntaje = 0;
 let palabrasRonda = [];
 let opcionesActuales = [];
 let bloqueado = false;
-let modoFinal = false;
 
 let faseIntentoLibre = true;
 let timeoutOpciones = null;
 
 let reconocimiento = null;
+let escuchando = false;
 
 // ── ELEMENTOS ──
 const braillePalabra = document.getElementById("braille-palabra");
@@ -104,100 +67,65 @@ const opciones = document.getElementById("opciones");
 const contadorEl = document.getElementById("contador");
 const puntajeEl = document.getElementById("puntaje");
 const btnVoz = document.getElementById("btn-voz");
-const btnEscuchar = document.getElementById("btn-escuchar");
 
 // ── VOZ ──
 function hablar(texto, cancelar = true) {
-  const synth = window.speechSynthesis;
-  if (cancelar) synth.cancel();
+  const s = window.speechSynthesis;
+  if (cancelar) s.cancel();
 
   const u = new SpeechSynthesisUtterance(texto);
   u.lang = "es-AR";
   u.rate = 0.95;
-  synth.speak(u);
+  s.speak(u);
 }
 
 function hablarAsync(texto) {
-  return new Promise((resolve) => {
+  return new Promise((res) => {
     const u = new SpeechSynthesisUtterance(texto);
     u.lang = "es-AR";
     u.rate = 0.95;
-    u.onend = resolve;
-    window.speechSynthesis.speak(u);
+    u.onend = res;
+    speechSynthesis.speak(u);
   });
 }
 
 // ── UTIL ──
-function esperar(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const esperar = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function mezclar(arr) {
-  return [...arr].sort(() => Math.random() - 0.5);
+function mezclar(a) {
+  return [...a].sort(() => Math.random() - 0.5);
 }
 
 // ── BRAILLE ──
 function dibujarBraille(palabra) {
   braillePalabra.innerHTML = "";
+  for (const l of palabra) {
+    const p = BRAILLE[l];
+    const d = document.createElement("div");
+    d.classList.add("braille-letra");
 
-  for (const letra of palabra) {
-    const puntos = BRAILLE[letra];
-    if (!puntos) continue;
-
-    const div = document.createElement("div");
-    div.classList.add("braille-letra");
-
-    puntos.forEach((p) => {
-      const d = document.createElement("div");
-      d.classList.add("punto");
-      if (p) d.classList.add("activo");
-      div.appendChild(d);
+    p.forEach((v) => {
+      const dot = document.createElement("div");
+      dot.classList.add("punto");
+      if (v) dot.classList.add("activo");
+      d.appendChild(dot);
     });
 
-    braillePalabra.appendChild(div);
+    braillePalabra.appendChild(d);
   }
 }
 
 // ── OPCIONES ──
 function generarOpciones(correcta) {
-  const incorrectas = TODAS_LAS_PALABRAS.filter((p) => p !== correcta)
+  const inc = TODAS_LAS_PALABRAS.filter((p) => p !== correcta)
     .sort(() => Math.random() - 0.5)
     .slice(0, 3);
 
-  return mezclar([correcta, ...incorrectas]);
+  return mezclar([correcta, ...inc]);
 }
 
-function leerOpciones(opts) {
-  return opts.map((o, i) => `Opción ${i + 1}, ${o}`).join(". ");
-}
-
-// ── BRAILLE VOZ ──
-async function describirBraille(palabra) {
-  const letras = palabra.split("");
-
-  for (let i = 0; i < letras.length; i++) {
-    const puntos = BRAILLE[letras[i]];
-    if (!puntos) continue;
-
-    await hablarAsync(`Celda ${i + 1}`);
-    await esperar(400);
-
-    const pos = [1, 4, 2, 5, 3, 6];
-    const activos = [];
-
-    puntos.forEach((v, i2) => {
-      if (v) activos.push(pos[i2]);
-    });
-
-    activos.sort((a, b) => a - b);
-
-    for (const p of activos) {
-      await hablarAsync(`punto ${p}`);
-      await esperar(600);
-    }
-
-    await esperar(400);
-  }
+function leerOpciones(o) {
+  return o.map((x, i) => `Opción ${i + 1}, ${x}`).join(". ");
 }
 
 // ── PREGUNTA ──
@@ -217,23 +145,19 @@ async function mostrarPregunta() {
 
   opcionesActuales.forEach((op, i) => {
     const b = document.createElement("button");
-
-    b.classList.add("opcion");
-
+    b.classList.add("opcion"); // 👈 NO romper estética
     b.textContent = `${i + 1}. ${op}`;
     b.onclick = () => elegirOpcion(op, palabra);
     opciones.appendChild(b);
   });
 
-  await describirBraille(palabra);
-
-  hablar("Decí la palabra si la sabés.");
+  await hablarAsync("Decí la palabra si la sabés.");
 
   timeoutOpciones = setTimeout(async () => {
     faseIntentoLibre = false;
     await hablarAsync("Ahora escuchá las opciones.");
     await hablarAsync(leerOpciones(opcionesActuales));
-  }, 5000);
+  }, 9000); // ⏱ MÁS TIEMPO
 }
 
 // ── ELEGIR ──
@@ -252,23 +176,18 @@ function elegirOpcion(elegida, correcta) {
     preguntaActual++;
     if (preguntaActual < 10) mostrarPregunta();
     else terminar();
-  }, 2000);
+  }, 1800);
 }
 
 // ── FIN ──
 function terminar() {
-  modoFinal = true;
-  hablar(`Terminaste con ${puntaje} de 10. Decí sí para jugar de nuevo.`);
+  hablar(`Terminaste con ${puntaje} de 10.`);
 }
 
 // ── INICIO ──
 function iniciarJuego() {
-  window.speechSynthesis.cancel();
-
   preguntaActual = 0;
   puntaje = 0;
-  modoFinal = false;
-
   palabrasRonda = mezclar(TODAS_LAS_PALABRAS).slice(0, 10);
 
   mostrarPregunta();
@@ -279,22 +198,41 @@ function iniciarReconocimiento() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return;
 
+  if (reconocimiento) reconocimiento.stop();
+
   reconocimiento = new SR();
   reconocimiento.lang = "es-AR";
+  reconocimiento.continuous = true;
+
+  reconocimiento.onstart = () => {
+    escuchando = true;
+    btnVoz.style.background = "red"; // 🔴 escuchando
+  };
+
+  reconocimiento.onend = () => {
+    escuchando = false;
+    btnVoz.style.background = "yellow"; // 🟡 idle
+  };
 
   reconocimiento.onresult = (e) => {
-    const texto = e.results[0][0].transcript.toLowerCase();
-
+    const texto = e.results[0][0].transcript.toLowerCase().trim();
     const palabra = palabrasRonda[preguntaActual];
 
-    if (faseIntentoLibre) {
-      if (texto.includes(palabra)) {
-        clearTimeout(timeoutOpciones);
-        elegirOpcion(palabra, palabra);
-        return;
-      }
+    // ── intento libre ──
+    if (faseIntentoLibre && texto.includes(palabra)) {
+      clearTimeout(timeoutOpciones);
+      hablar("Correcto");
+      elegirOpcion(palabra, palabra);
+      return;
     }
 
+    // ── repetir ──
+    if (texto.includes("repetir")) {
+      mostrarPregunta();
+      return;
+    }
+
+    // ── opciones ──
     const mapa = { uno: 0, dos: 1, tres: 2, cuatro: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
 
     for (const k in mapa) {
@@ -304,9 +242,8 @@ function iniciarReconocimiento() {
       }
     }
 
-    if (texto.includes("repetir")) {
-      mostrarPregunta();
-    }
+    // fallback
+    hablar("Decí repetir o una opción.");
   };
 
   reconocimiento.start();
@@ -314,12 +251,4 @@ function iniciarReconocimiento() {
 
 // ── EVENTOS ──
 btnVoz.onclick = iniciarReconocimiento;
-btnEscuchar.onclick = () => mostrarPregunta();
-
-window.addEventListener("load", () => {
-  iniciarJuego();
-
-  document.body.addEventListener("click", () => {
-    window.speechSynthesis.resume(); // desbloquea audio móvil
-  });
-});
+window.onload = iniciarJuego;
