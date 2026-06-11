@@ -28,7 +28,7 @@ const BRAILLE = {
   z: [1, 0, 0, 1, 1, 1],
 };
 
-// ── PALABRAS FÁCILES ──
+// ── PALABRAS ──
 const TODAS_LAS_PALABRAS = [
   "casa",
   "mesa",
@@ -83,52 +83,6 @@ const TODAS_LAS_PALABRAS = [
   "viernes",
   "sabado",
   "domingo",
-  "año",
-  "mes",
-  "hora",
-  "minuto",
-  "segundo",
-  "tiempo",
-  "vida",
-  "playa",
-  "mar",
-  "rio",
-  "lago",
-  "isla",
-  "montaña",
-  "bosque",
-  "campo",
-  "arena",
-  "piedra",
-  "auto",
-  "tren",
-  "avion",
-  "barco",
-  "bus",
-  "moto",
-  "bicicleta",
-  "camion",
-  "taxi",
-  "metro",
-  "libro",
-  "hoja",
-  "lápiz",
-  "cuaderno",
-  "puerta",
-  "ventana",
-  "pared",
-  "techo",
-  "piso",
-  "juego",
-  "pelota",
-  "correr",
-  "saltar",
-  "caminar",
-  "leer",
-  "escribir",
-  "dibujar",
-  "hablar",
-  "escuchar",
 ];
 
 // ── ESTADO ──
@@ -137,9 +91,12 @@ let puntaje = 0;
 let palabrasRonda = [];
 let opcionesActuales = [];
 let bloqueado = false;
-let reconocimiento = null;
-let escuchando = false;
 let modoFinal = false;
+
+let faseIntentoLibre = true;
+let timeoutOpciones = null;
+
+let reconocimiento = null;
 
 // ── ELEMENTOS ──
 const braillePalabra = document.getElementById("braille-palabra");
@@ -149,11 +106,7 @@ const puntajeEl = document.getElementById("puntaje");
 const btnVoz = document.getElementById("btn-voz");
 const btnEscuchar = document.getElementById("btn-escuchar");
 
-// ── UTIL ──
-function esperar(ms) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
+// ── VOZ ──
 function hablar(texto, cancelar = true) {
   const synth = window.speechSynthesis;
   if (cancelar) synth.cancel();
@@ -174,17 +127,16 @@ function hablarAsync(texto) {
   });
 }
 
-// ── MEZCLAR ──
-function mezclar(arr) {
-  const copia = [...arr];
-  for (let i = copia.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copia[i], copia[j]] = [copia[j], copia[i]];
-  }
-  return copia;
+// ── UTIL ──
+function esperar(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
-// ── DIBUJAR BRAILLE ──
+function mezclar(arr) {
+  return [...arr].sort(() => Math.random() - 0.5);
+}
+
+// ── BRAILLE ──
 function dibujarBraille(palabra) {
   braillePalabra.innerHTML = "";
 
@@ -195,11 +147,11 @@ function dibujarBraille(palabra) {
     const div = document.createElement("div");
     div.classList.add("braille-letra");
 
-    puntos.forEach((activo) => {
-      const punto = document.createElement("div");
-      punto.classList.add("punto");
-      if (activo) punto.classList.add("activo");
-      div.appendChild(punto);
+    puntos.forEach((p) => {
+      const d = document.createElement("div");
+      d.classList.add("punto");
+      if (p) d.classList.add("activo");
+      div.appendChild(d);
     });
 
     braillePalabra.appendChild(div);
@@ -216,50 +168,42 @@ function generarOpciones(correcta) {
 }
 
 function leerOpciones(opts) {
-  return opts.map((op, i) => `Opción ${i + 1}, ${op}`).join(". ");
+  return opts.map((o, i) => `Opción ${i + 1}, ${o}`).join(". ");
 }
 
-// ── BRAILLE CON VOZ (CORREGIDO) ──
+// ── BRAILLE VOZ ──
 async function describirBraille(palabra) {
   const letras = palabra.split("");
 
   for (let i = 0; i < letras.length; i++) {
-    const letra = letras[i];
-    const puntos = BRAILLE[letra];
+    const puntos = BRAILLE[letras[i]];
     if (!puntos) continue;
 
-    const ordinal =
-      ["Primera", "Segunda", "Tercera", "Cuarta", "Quinta", "Sexta"][i] ||
-      `Celda ${i + 1}`;
-
-    await hablarAsync(`${ordinal} celda.`);
+    await hablarAsync(`Celda ${i + 1}`);
     await esperar(400);
 
-    const posiciones = [1, 4, 2, 5, 3, 6];
-
+    const pos = [1, 4, 2, 5, 3, 6];
     const activos = [];
 
-    for (let j = 0; j < puntos.length; j++) {
-      if (puntos[j]) {
-        activos.push(posiciones[j]);
-      }
-    }
+    puntos.forEach((v, i2) => {
+      if (v) activos.push(pos[i2]);
+    });
 
-    // 🔥 ORDENADOS
     activos.sort((a, b) => a - b);
 
-    for (let k = 0; k < activos.length; k++) {
-      await hablarAsync(`${activos[k]}.`);
+    for (const p of activos) {
+      await hablarAsync(`punto ${p}`);
       await esperar(600);
     }
 
-    await esperar(500);
+    await esperar(400);
   }
 }
 
 // ── PREGUNTA ──
 async function mostrarPregunta() {
   bloqueado = false;
+  faseIntentoLibre = true;
 
   const palabra = palabrasRonda[preguntaActual];
 
@@ -271,17 +215,25 @@ async function mostrarPregunta() {
   opcionesActuales = generarOpciones(palabra);
   opciones.innerHTML = "";
 
-  opcionesActuales.forEach((opcion, i) => {
-    const btn = document.createElement("button");
-    btn.classList.add("opcion");
-    btn.textContent = `${i + 1}. ${opcion}`;
-    btn.addEventListener("click", () => elegirOpcion(opcion, palabra));
-    opciones.appendChild(btn);
+  opcionesActuales.forEach((op, i) => {
+    const b = document.createElement("button");
+
+    b.classList.add("opcion");
+
+    b.textContent = `${i + 1}. ${op}`;
+    b.onclick = () => elegirOpcion(op, palabra);
+    opciones.appendChild(b);
   });
 
   await describirBraille(palabra);
 
-  await hablarAsync(leerOpciones(opcionesActuales));
+  hablar("Decí la palabra si la sabés.");
+
+  timeoutOpciones = setTimeout(async () => {
+    faseIntentoLibre = false;
+    await hablarAsync("Ahora escuchá las opciones.");
+    await hablarAsync(leerOpciones(opcionesActuales));
+  }, 5000);
 }
 
 // ── ELEGIR ──
@@ -289,17 +241,8 @@ function elegirOpcion(elegida, correcta) {
   if (bloqueado) return;
   bloqueado = true;
 
-  const botones = document.querySelectorAll(".opcion");
-
-  botones.forEach((btn) => {
-    const txt = btn.textContent.split(". ")[1];
-    if (txt === correcta) btn.classList.add("correcta");
-    else if (txt === elegida) btn.classList.add("incorrecta");
-  });
-
   if (elegida === correcta) {
     puntaje++;
-    puntajeEl.textContent = `✅ ${puntaje}`;
     hablar("Correcto");
   } else {
     hablar(`Incorrecto. Era ${correcta}`);
@@ -308,12 +251,12 @@ function elegirOpcion(elegida, correcta) {
   setTimeout(() => {
     preguntaActual++;
     if (preguntaActual < 10) mostrarPregunta();
-    else terminarJuego();
+    else terminar();
   }, 2000);
 }
 
 // ── FIN ──
-function terminarJuego() {
+function terminar() {
   modoFinal = true;
   hablar(`Terminaste con ${puntaje} de 10. Decí sí para jugar de nuevo.`);
 }
@@ -325,20 +268,16 @@ function iniciarJuego() {
   preguntaActual = 0;
   puntaje = 0;
   modoFinal = false;
-  bloqueado = false;
 
   palabrasRonda = mezclar(TODAS_LAS_PALABRAS).slice(0, 10);
 
-  puntajeEl.textContent = "✅ 0";
   mostrarPregunta();
 }
 
 // ── VOZ ──
 function iniciarReconocimiento() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return hablar("No soporta voz");
-
-  if (escuchando) return reconocimiento.stop();
+  if (!SR) return;
 
   reconocimiento = new SR();
   reconocimiento.lang = "es-AR";
@@ -346,58 +285,41 @@ function iniciarReconocimiento() {
   reconocimiento.onresult = (e) => {
     const texto = e.results[0][0].transcript.toLowerCase();
 
-    if (modoFinal) {
-      if (texto.includes("si") || texto.includes("sí")) iniciarJuego();
-      else hablar("Decí sí");
-      return;
-    }
+    const palabra = palabrasRonda[preguntaActual];
 
-    const mapa = {
-      "opción 1": 0,
-      opcion1: 0,
-      uno: 0,
-      1: 0,
-      "opción 2": 1,
-      opcion2: 1,
-      dos: 1,
-      2: 1,
-      "opción 3": 2,
-      opcion3: 2,
-      tres: 2,
-      3: 2,
-      "opción 4": 3,
-      opcion4: 3,
-      cuatro: 3,
-      4: 4,
-    };
-
-    for (const [k, v] of Object.entries(mapa)) {
-      if (texto.includes(k)) {
-        elegirOpcion(opcionesActuales[v], palabrasRonda[preguntaActual]);
+    if (faseIntentoLibre) {
+      if (texto.includes(palabra)) {
+        clearTimeout(timeoutOpciones);
+        elegirOpcion(palabra, palabra);
         return;
       }
     }
 
-    const encontrada = opcionesActuales.find((o) => texto.includes(o));
+    const mapa = { uno: 0, dos: 1, tres: 2, cuatro: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
 
-    if (encontrada) {
-      elegirOpcion(encontrada, palabrasRonda[preguntaActual]);
-      return;
+    for (const k in mapa) {
+      if (texto.includes(k)) {
+        elegirOpcion(opcionesActuales[mapa[k]], palabra);
+        return;
+      }
     }
 
-    hablar("No entendí");
+    if (texto.includes("repetir")) {
+      mostrarPregunta();
+    }
   };
 
   reconocimiento.start();
 }
 
 // ── EVENTOS ──
-btnVoz.addEventListener("click", iniciarReconocimiento);
+btnVoz.onclick = iniciarReconocimiento;
+btnEscuchar.onclick = () => mostrarPregunta();
 
-btnEscuchar.addEventListener("click", async () => {
-  const palabra = palabrasRonda[preguntaActual];
-  await describirBraille(palabra);
-  await hablarAsync(leerOpciones(opcionesActuales));
+window.addEventListener("load", () => {
+  iniciarJuego();
+
+  document.body.addEventListener("click", () => {
+    window.speechSynthesis.resume(); // desbloquea audio móvil
+  });
 });
-
-window.addEventListener("load", iniciarJuego);
