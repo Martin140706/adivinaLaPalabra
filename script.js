@@ -1,9 +1,3 @@
-// ── DESBLOQUEO DE VOZ (IMPORTANTE PARA MÓVIL) ──
-function desbloquearVoz() {
-  const u = new SpeechSynthesisUtterance("");
-  window.speechSynthesis.speak(u);
-}
-
 // ── ALFABETO BRAILLE ──
 const BRAILLE = {
   a: [1, 0, 0, 0, 0, 0],
@@ -143,9 +137,9 @@ let puntaje = 0;
 let palabrasRonda = [];
 let opcionesActuales = [];
 let bloqueado = false;
-let modoFinal = false;
 let reconocimiento = null;
 let escuchando = false;
+let modoFinal = false;
 
 // ── ELEMENTOS ──
 const braillePalabra = document.getElementById("braille-palabra");
@@ -225,7 +219,7 @@ function leerOpciones(opts) {
   return opts.map((op, i) => `Opción ${i + 1}, ${op}`).join(". ");
 }
 
-// ── BRAILLE CON VOZ ──
+// ── BRAILLE CON VOZ (CORREGIDO) ──
 async function describirBraille(palabra) {
   const letras = palabra.split("");
 
@@ -239,28 +233,31 @@ async function describirBraille(palabra) {
       `Celda ${i + 1}`;
 
     await hablarAsync(`${ordinal} celda.`);
-    await esperar(500);
+    await esperar(100);
 
     const posiciones = [1, 4, 2, 5, 3, 6];
 
     const activos = [];
 
     for (let j = 0; j < puntos.length; j++) {
-      if (puntos[j]) activos.push(posiciones[j]);
+      if (puntos[j]) {
+        activos.push(posiciones[j]);
+      }
     }
 
+    // 🔥 ORDENADOS
     activos.sort((a, b) => a - b);
 
     for (let k = 0; k < activos.length; k++) {
-      await hablarAsync(`punto ${activos[k]}.`);
-      await esperar(800);
+      await hablarAsync(`${activos[k]}.`);
+      await esperar(100);
     }
 
-    await esperar(900);
+    await esperar(500);
   }
 }
 
-// ── MOSTRAR PREGUNTA ──
+// ── PREGUNTA ──
 async function mostrarPregunta() {
   bloqueado = false;
 
@@ -283,6 +280,7 @@ async function mostrarPregunta() {
   });
 
   await describirBraille(palabra);
+
   await hablarAsync(leerOpciones(opcionesActuales));
 }
 
@@ -370,7 +368,7 @@ function iniciarReconocimiento() {
       "opción 4": 3,
       opcion4: 3,
       cuatro: 3,
-      4: 3,
+      4: 4,
     };
 
     for (const [k, v] of Object.entries(mapa)) {
@@ -393,22 +391,13 @@ function iniciarReconocimiento() {
   reconocimiento.start();
 }
 
-// ── EVENTOS (IMPORTANTE PARA MÓVIL) ──
+// ── EVENTOS ──
 btnVoz.addEventListener("click", iniciarReconocimiento);
+
 btnEscuchar.addEventListener("click", async () => {
   const palabra = palabrasRonda[preguntaActual];
   await describirBraille(palabra);
   await hablarAsync(leerOpciones(opcionesActuales));
 });
 
-// 🔥 DESBLOQUEO REAL EN MÓVIL
-window.addEventListener("load", () => {
-  document.body.addEventListener(
-    "click",
-    () => {
-      desbloquearVoz();
-      iniciarJuego();
-    },
-    { once: true },
-  );
-});
+window.addEventListener("load", iniciarJuego);
