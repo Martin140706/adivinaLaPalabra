@@ -233,7 +233,7 @@ async function describirBraille(palabra) {
       `Celda ${i + 1}`;
 
     await hablarAsync(`${ordinal} celda.`);
-    await esperar(100);
+    await esperar(400);
 
     const posiciones = [1, 4, 2, 5, 3, 6];
 
@@ -250,7 +250,7 @@ async function describirBraille(palabra) {
 
     for (let k = 0; k < activos.length; k++) {
       await hablarAsync(`${activos[k]}.`);
-      await esperar(100);
+      await esperar(600);
     }
 
     await esperar(500);
