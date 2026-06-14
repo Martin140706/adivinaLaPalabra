@@ -328,34 +328,59 @@ function iniciarReconocimiento() {
     const texto = e.results[0][0].transcript.toLowerCase().trim();
 
     console.log("Escuché:", texto);
-
     const palabra = palabrasRonda[preguntaActual];
 
     if (faseIntentoLibre) {
       clearTimeout(timeoutOpciones);
 
-      if (texto === palabra) {
+      if (texto.includes(palabra)) {
         elegirOpcion(palabra, palabra);
         return;
       }
 
-      faseIntentoLibre = false;
+      if (texto.includes("opciones")) {
+        faseIntentoLibre = false;
+        hablar(leerOpciones(opcionesActuales));
+        return;
+      }
+
+      if (texto.includes("repetir celda")) {
+        let numero = null;
+
+        if (texto.includes("uno")) numero = 1;
+        else if (texto.includes("dos")) numero = 2;
+        else if (texto.includes("tres")) numero = 3;
+        else if (texto.includes("cuatro")) numero = 4;
+        else if (texto.includes("cinco")) numero = 5;
+        else if (texto.includes("seis")) numero = 6;
+
+        const match = texto.match(/\d+/);
+
+        if (!numero && match) {
+          numero = parseInt(match[0]);
+        }
+
+        if (numero) {
+          repetirCelda(numero);
+        } else {
+          hablar("Decí repetir celda uno, dos, tres, cuatro, cinco o seis");
+        }
+
+        return;
+      }
+
+      if (texto === "repetir") {
+        mostrarPregunta();
+        return;
+      }
 
       hablar(
-        "No es correcto. ¿Querés escuchar las opciones o repetir el braille?",
+        "No es correcto. Decí opciones para escuchar las respuestas o repetir para escuchar nuevamente.",
       );
 
       return;
     }
-    // Si dijo alguna palabra de las opciones
-    for (const opcion of opcionesActuales) {
-      if (texto.includes(opcion.toLowerCase())) {
-        clearTimeout(timeoutOpciones);
 
-        elegirOpcion(opcion, palabra);
-        return;
-      }
-    }
     if (texto.includes("repetir celda")) {
       let numero = null;
 
@@ -375,11 +400,28 @@ function iniciarReconocimiento() {
       if (numero) {
         repetirCelda(numero);
       } else {
-        hablar("Decí repetir celda uno, dos, tres, cuatro, cinco o seis");
+        hablar(
+          "No entendí. Podés decir una palabra, repetir, repetir celda o una opción.",
+        );
       }
 
       return;
     }
+
+    // Si dijo alguna palabra de las opciones
+    for (const opcion of opcionesActuales) {
+      if (texto.includes(opcion.toLowerCase())) {
+        clearTimeout(timeoutOpciones);
+
+        elegirOpcion(opcion, palabra);
+        return;
+      }
+    }
+    if (texto === "repetir") {
+      mostrarPregunta();
+      return;
+    }
+
     if (texto.includes("repetir")) {
       mostrarPregunta();
       return;
