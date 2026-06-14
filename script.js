@@ -60,6 +60,8 @@ let timeoutOpciones = null;
 
 let reconocimiento = null;
 let escuchando = false;
+let ultimaPalabra = "";
+let esperandoDecision = false;
 
 // ── ELEMENTOS ──
 const braillePalabra = document.getElementById("braille-palabra");
@@ -80,11 +82,16 @@ function hablar(texto, cancelar = true) {
 }
 
 function hablarAsync(texto) {
-  return new Promise((res) => {
+  return new Promise((resolve) => {
     const u = new SpeechSynthesisUtterance(texto);
+
     u.lang = "es-AR";
     u.rate = 0.95;
-    u.onend = res;
+
+    u.onend = () => {
+      resolve();
+    };
+
     speechSynthesis.speak(u);
   });
 }
@@ -127,9 +134,101 @@ function generarOpciones(correcta) {
 function leerOpciones(o) {
   return o.map((x, i) => `Opción ${i + 1}, ${x}`).join(". ");
 }
+async function describirBraille(palabra) {
+  ultimaPalabra = palabra;
 
+  const letras = palabra.split("");
+
+  for (let i = 0; i < letras.length; i++) {
+    const letra = letras[i];
+
+    const puntos = BRAILLE[letra];
+    if (!puntos) continue;
+
+    let nombreCelda;
+
+    switch (i) {
+      case 0:
+        nombreCelda = "Primera";
+        break;
+      case 1:
+        nombreCelda = "Segunda";
+        break;
+      case 2:
+        nombreCelda = "Tercera";
+        break;
+      case 3:
+        nombreCelda = "Cuarta";
+        break;
+      case 4:
+        nombreCelda = "Quinta";
+        break;
+      case 5:
+        nombreCelda = "Sexta";
+        break;
+      default:
+        nombreCelda = `Celda ${i + 1}`;
+    }
+
+    await hablarAsync(`${nombreCelda} celda`);
+
+    await esperar(1000);
+
+    const posiciones = [1, 4, 2, 5, 3, 6];
+
+    const activos = [];
+
+    for (let j = 0; j < puntos.length; j++) {
+      if (puntos[j]) {
+        activos.push(posiciones[j]);
+      }
+    }
+
+    activos.sort((a, b) => a - b);
+
+    for (const punto of activos) {
+      await hablarAsync(`${punto}`);
+      await esperar(100);
+    }
+
+    await esperar(500);
+  }
+}
+
+async function repetirCelda(numeroCelda) {
+  const palabra = palabrasRonda[preguntaActual];
+
+  const letra = palabra[numeroCelda - 1];
+
+  if (!letra) {
+    hablar("Esa celda no existe");
+    return;
+  }
+
+  const puntos = BRAILLE[letra];
+
+  const posiciones = [1, 4, 2, 5, 3, 6];
+
+  let activos = [];
+
+  for (let i = 0; i < puntos.length; i++) {
+    if (puntos[i]) {
+      activos.push(posiciones[i]);
+    }
+  }
+
+  activos.sort((a, b) => a - b);
+
+  await hablarAsync(`Celda ${numeroCelda}`);
+
+  for (const punto of activos) {
+    await hablarAsync(`${punto}`);
+    await esperar(600);
+  }
+}
 // ── PREGUNTA ──
 async function mostrarPregunta() {
+  clearTimeout(timeoutOpciones);
   bloqueado = false;
   faseIntentoLibre = true;
 
@@ -151,13 +250,15 @@ async function mostrarPregunta() {
     opciones.appendChild(b);
   });
 
+  await describirBraille(palabra);
+
   await hablarAsync("Decí la palabra si la sabés.");
 
   timeoutOpciones = setTimeout(async () => {
     faseIntentoLibre = false;
     await hablarAsync("Ahora escuchá las opciones.");
     await hablarAsync(leerOpciones(opcionesActuales));
-  }, 9000); // ⏱ MÁS TIEMPO
+  }, 15000); // ⏱ MÁS TIEMPO
 }
 
 // ── ELEGIR ──
@@ -196,44 +297,104 @@ function iniciarJuego() {
 // ── VOZ ──
 function iniciarReconocimiento() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;
 
-  if (reconocimiento) reconocimiento.stop();
+  if (!SR) {
+    hablar("Tu navegador no soporta reconocimiento de voz");
+    return;
+  }
+
+  if (escuchando) {
+    reconocimiento.stop();
+    return;
+  }
 
   reconocimiento = new SR();
+
   reconocimiento.lang = "es-AR";
-  reconocimiento.continuous = true;
+  reconocimiento.continuous = false;
+  reconocimiento.interimResults = false;
 
   reconocimiento.onstart = () => {
     escuchando = true;
-    btnVoz.style.background = "red"; // 🔴 escuchando
+    btnVoz.classList.add("escuchando");
   };
 
   reconocimiento.onend = () => {
     escuchando = false;
-    btnVoz.style.background = "yellow"; // 🟡 idle
+    btnVoz.classList.remove("escuchando");
   };
 
   reconocimiento.onresult = (e) => {
     const texto = e.results[0][0].transcript.toLowerCase().trim();
+
+    console.log("Escuché:", texto);
+
     const palabra = palabrasRonda[preguntaActual];
 
-    // ── intento libre ──
-    if (faseIntentoLibre && texto.includes(palabra)) {
+    if (faseIntentoLibre) {
       clearTimeout(timeoutOpciones);
-      hablar("Correcto");
-      elegirOpcion(palabra, palabra);
+
+      if (texto === palabra) {
+        elegirOpcion(palabra, palabra);
+        return;
+      }
+
+      faseIntentoLibre = false;
+
+      hablar(
+        "No es correcto. ¿Querés escuchar las opciones o repetir el braille?",
+      );
+
       return;
     }
+    // Si dijo alguna palabra de las opciones
+    for (const opcion of opcionesActuales) {
+      if (texto.includes(opcion.toLowerCase())) {
+        clearTimeout(timeoutOpciones);
 
-    // ── repetir ──
+        elegirOpcion(opcion, palabra);
+        return;
+      }
+    }
+    if (texto.includes("repetir celda")) {
+      let numero = null;
+
+      if (texto.includes("uno")) numero = 1;
+      else if (texto.includes("dos")) numero = 2;
+      else if (texto.includes("tres")) numero = 3;
+      else if (texto.includes("cuatro")) numero = 4;
+      else if (texto.includes("cinco")) numero = 5;
+      else if (texto.includes("seis")) numero = 6;
+
+      const match = texto.match(/\d+/);
+
+      if (!numero && match) {
+        numero = parseInt(match[0]);
+      }
+
+      if (numero) {
+        repetirCelda(numero);
+      } else {
+        hablar("Decí repetir celda uno, dos, tres, cuatro, cinco o seis");
+      }
+
+      return;
+    }
     if (texto.includes("repetir")) {
       mostrarPregunta();
       return;
     }
 
-    // ── opciones ──
-    const mapa = { uno: 0, dos: 1, tres: 2, cuatro: 3, 1: 0, 2: 1, 3: 2, 4: 3 };
+    const mapa = {
+      uno: 0,
+      dos: 1,
+      tres: 2,
+      cuatro: 3,
+      1: 0,
+      2: 1,
+      3: 2,
+      4: 3,
+    };
 
     for (const k in mapa) {
       if (texto.includes(k)) {
@@ -242,8 +403,13 @@ function iniciarReconocimiento() {
       }
     }
 
-    // fallback
-    hablar("Decí repetir o una opción.");
+    if (faseIntentoLibre) {
+      hablar(
+        "No es correcto. Decí repetir para escuchar nuevamente o opciones para escuchar las respuestas.",
+      );
+    } else {
+      hablar("Decí uno, dos, tres o cuatro.");
+    }
   };
 
   reconocimiento.start();
