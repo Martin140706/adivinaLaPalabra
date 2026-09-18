@@ -225,6 +225,7 @@ const TODAS_LAS_PALABRAS = [
   "lápiz",
   "fácil",
   "güiro",
+  "agüita",
 ];
 
 // ── ESTADO ──
