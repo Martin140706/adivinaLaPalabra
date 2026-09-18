@@ -26,10 +26,12 @@ const BRAILLE = {
   x: [1, 1, 0, 0, 1, 1],
   y: [1, 1, 0, 1, 1, 1],
   z: [1, 0, 0, 1, 1, 1],
+  á: [1, 1, 1, 0, 1, 1],
 };
 
 // ── PALABRAS FÁCILES ──
 const TODAS_LAS_PALABRAS = [
+  "árbol",
   "casa",
   "mesa",
   "luna",
